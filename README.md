@@ -1,8 +1,8 @@
-# Biomarker Tracker
+# Hii.Health Biomarker Co-Team
 
 Weekly to-do tracking for the Hii.Health Biomarker Co-Team. Spec: [PRD-hii-health-tracker.md](PRD-hii-health-tracker.md).
 
-Next.js 16 (App Router) · Prisma 7 · Supabase Postgres · Tailwind 4 · Recharts.
+Next.js 16 (App Router) · Prisma 7 · Supabase Postgres · Tailwind 4.
 
 ## Setup
 

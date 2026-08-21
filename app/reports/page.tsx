@@ -1,7 +1,12 @@
-import { MonthChart, type ChartRow } from "@/app/_components/MonthChart";
 import { MonthPicker } from "@/app/_components/MonthPicker";
-import { getAvailableMonths, getMonthlyReport, STUCK_THRESHOLD } from "@/lib/queries";
-import { toMonthKey, todayUTC } from "@/lib/dates";
+import {
+  getAvailableMonths,
+  getMonthlyReport,
+  STUCK_THRESHOLD,
+  UNASSIGNED_LABEL,
+  type MonthTaskRow,
+} from "@/lib/queries";
+import { formatMonth, toMonthKey, todayUTC } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +24,12 @@ export default async function ReportsPage({
 
   const report = await getMonthlyReport(selected);
 
-  const chartData: ChartRow[] = report.people.map((person) => ({
-    name: person.name,
-    completed: person.completed,
-    missed: person.missed,
-  }));
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">Monthly summary</h1>
+        <h1 className="text-lg font-semibold tracking-tight">
+          {formatMonth(selected)}
+        </h1>
         <MonthPicker months={months} selected={selected} />
       </div>
 
@@ -40,94 +41,127 @@ export default async function ReportsPage({
         <>
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Completed" value={report.totals.completed} />
-            <Stat label="Still open" value={report.totals.missed} />
+            <Stat label="Missed" value={report.totals.missed} />
             <Stat label="Total" value={report.totals.total} />
           </div>
 
           <p className="text-xs text-faint">
             {report.periodCount} {report.periodCount === 1 ? "week" : "weeks"} in
-            this month. A task carried across several weeks counts once.
+            this month. A task carried across several weeks is listed once.
           </p>
 
-          <MonthChart data={chartData} />
+          <TaskSection
+            title="Completed"
+            count={report.completed.length}
+            rows={report.completed}
+            emptyText="Nothing completed this month."
+            tone="accent"
+          />
 
-          <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-            <table className="w-full min-w-[420px] text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-4 py-2 font-medium">Person</th>
-                  <th className="px-4 py-2 text-right font-medium">Assigned</th>
-                  <th className="px-4 py-2 text-right font-medium">Completed</th>
-                  <th className="px-4 py-2 text-right font-medium">Missed</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {report.people.map((person) => (
-                  <tr key={person.id}>
-                    <td className="px-4 py-2">
-                      {person.name}
-                      {!person.active && (
-                        <span className="ml-2 text-xs text-faint">inactive</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {person.assigned}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {person.completed}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {person.missed}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TaskSection
+            title="Missed"
+            count={report.missed.length}
+            rows={report.missed}
+            emptyText="Nothing missed this month."
+            tone="warn"
+            showCarried
+          />
 
-          <div className="space-y-2">
-            <h2 className="text-sm font-medium">
-              Stuck items
-              <span className="ml-2 text-xs font-normal text-faint">
-                carried {STUCK_THRESHOLD}x or more, still open
-              </span>
-            </h2>
-            {report.stuck.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-line px-4 py-6 text-center text-sm text-faint">
-                Nothing stuck.
-              </p>
-            ) : (
-              <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
-                {report.stuck.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-start justify-between gap-4 px-4 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm break-words">{task.text}</p>
-                      <p className="mt-0.5 text-xs text-muted">
-                        {task.owners.length === 0
-                          ? "Team"
-                          : task.owners.join(", ")}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">
-                      carried {task.carriedCount}x
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <TaskSection
+            title="Stuck"
+            hint={`carried ${STUCK_THRESHOLD}x or more, still open`}
+            count={report.stuck.length}
+            rows={report.stuck}
+            emptyText="Nothing stuck."
+            tone="warn"
+            showCarried
+          />
         </>
       )}
     </div>
   );
 }
 
+function TaskSection({
+  title,
+  hint,
+  count,
+  rows,
+  emptyText,
+  tone,
+  showCarried,
+}: {
+  title: string;
+  hint?: string;
+  count: number;
+  rows: MonthTaskRow[];
+  emptyText: string;
+  tone: "accent" | "warn";
+  showCarried?: boolean;
+}) {
+  return (
+    <section className="space-y-2">
+      <h2 className="flex flex-wrap items-baseline gap-2 text-sm font-medium">
+        {title}
+        <span className="text-xs font-normal text-faint">
+          {count}
+          {hint && ` · ${hint}`}
+        </span>
+      </h2>
+
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-line px-4 py-6 text-center text-sm text-faint">
+          {emptyText}
+        </p>
+      ) : (
+        <div className="card divide-y divide-line overflow-hidden">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-4 py-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm break-words">{row.text}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {/* Owners belong on every row — for a missed task this is the
+                      whole point: whose item was it. */}
+                  {row.owners.length === 0 ? (
+                    <span className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-muted">
+                      {UNASSIGNED_LABEL}
+                    </span>
+                  ) : (
+                    row.owners.map((owner) => (
+                      <span
+                        key={owner}
+                        className={`rounded px-1.5 py-0.5 text-[11px] ${
+                          tone === "accent"
+                            ? "bg-accent-soft text-accent"
+                            : "bg-warn-soft text-warn"
+                        }`}
+                      >
+                        {owner}
+                      </span>
+                    ))
+                  )}
+                  {showCarried && row.carriedCount > 0 && (
+                    <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">
+                      carried {row.carriedCount}x
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className="shrink-0 text-xs text-faint">{row.weekLabel}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-line bg-surface px-4 py-3">
+    <div className="card px-4 py-3">
       <p className="text-xs text-muted">{label}</p>
       <p className="mt-0.5 text-2xl font-semibold tabular-nums">{value}</p>
     </div>

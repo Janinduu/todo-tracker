@@ -19,7 +19,7 @@ export function FirstPeriodForm({ today }: { today: string }) {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-5">
+    <div className="card p-5">
       <h2 className="text-sm font-medium">Start the first week</h2>
       <form
         onSubmit={(e) => {
@@ -95,7 +95,7 @@ export function NextPeriodForm({
   }
 
   return (
-    <div className="w-full rounded-lg border border-line bg-surface p-4">
+    <div className="w-full card p-4">
       <form
         onSubmit={(e) => {
           e.preventDefault();

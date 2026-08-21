@@ -9,7 +9,7 @@
 A small internal web app used by **one person** (the meeting note-taker) to track
 what the Biomarker Co-Team agreed to in each weekly meeting, mark off what got
 done, automatically carry forward anything unfinished into the next week, and pull
-a **monthly summary** of what each person completed and what they missed.
+a **monthly summary** of everything completed and everything missed.
 
 **Primary use case:** during/after the weekly meeting, the operator enters the
 agreed to-dos and checks off what was completed since last week. Between meetings
@@ -25,8 +25,8 @@ marketing pages, billing, multi-team support, mobile native apps.
 - Never lose an item — everything stays saved regardless of status.
 - Make it obvious at a glance what's been carried over multiple weeks
   (early warning for stuck tasks).
-- Produce a **monthly** summary per person and for the team without manual
-  tallying — what each person did, and what each person missed.
+- Produce a **monthly** summary without manual tallying — everything completed
+  and everything missed, each labelled with who owned it.
 - Run entirely on free-tier infrastructure (no paid hosting/DB required).
 
 ## 3. Users & Access
@@ -50,7 +50,6 @@ marketing pages, billing, multi-team support, mobile native apps.
 | ORM | Prisma | Type-safe schema + migrations, works cleanly with Next.js and Postgres |
 | Auth | **None** | Single operator; no accounts needed |
 | Hosting | Vercel (free Hobby tier) | Connects to GitHub for auto-deploys |
-| Charts | Recharts | For the monthly per-person bar chart |
 
 **Cost at this scale: $0/month.**
 
@@ -132,19 +131,33 @@ assignments are copied along with the task when it carries forward.
 ### 6.5 Monthly report
 Single view. Pick a calendar month (1st → last day, 30 or 31).
 
-- **Team totals:** tasks completed, tasks still open, total, across every period
-  overlapping that month.
-- **Per-person breakdown:** for each member — assigned / completed / missed
-  (still open). Shown as a table plus a simple Recharts bar chart.
-  - A task with multiple owners counts toward each of its owners.
-  - Tasks with no owner are grouped under a single **"Team (unassigned)"** row.
-- **Stuck items:** any task currently open with `carried_count >= 3`, listed with
-  text, owners, and how many weeks it's been carried.
+Reports **the work**, not per-person tallies. There is deliberately no
+per-member breakdown table and no chart — ownership is shown on each task row
+instead, so "who missed this?" is answered per item rather than as a score
+against a person.
+
+- **Totals:** completed, missed, total — across every period overlapping the
+  month.
+- **Completed:** every task finished this month, each showing its owners and the
+  week it was finished in.
+- **Missed:** every task still open, each showing its owners, the week it
+  currently sits in, and how many times it's been carried. Ordered most-carried
+  first.
+- **Stuck:** the subset of missed items with `carried_count >= 3`, taken from the
+  latest week in the month.
+
+Rows are deduplicated by lineage — a task carried across several weeks appears
+**once**, not once per week. Tasks with no owner display as **"Team"**.
 
 ## 7. Design / Theme
 
-- Simple, minimal, **light** color scheme. Neutral background, one restrained
-  accent color, plenty of whitespace.
+- App name throughout, including the browser tab: **Hii.Health Biomarker
+  Co-Team**.
+- Simple, minimal, **light** color scheme. One restrained accent color, plenty
+  of whitespace.
+- Background is a soft tinted wash (two low-opacity radial gradients over a
+  vertical gradient), not a flat fill. Panels sit slightly translucent on top
+  with a hairline shadow so the tint reads through.
 - **No filler copy** — no explanatory paragraphs, taglines, marketing text, or
   onboarding blurbs. Labels and data only.
 - Dense enough to scan a full week of tasks without scrolling where possible.
@@ -193,6 +206,8 @@ Single view. Pick a calendar month (1st → last day, 30 or 31).
 
 - **Auth:** none. Single operator, no login. *(was §11 open question)*
 - **Reporting cadence:** monthly only; the weekly summary view is dropped.
+- **Report shape:** task lists (completed / missed / stuck) with owners shown
+  per row. No per-member breakdown table and no chart.
 - **Owners:** 0-to-many per task, via join table.
 - **Seed members:** Thanveer, Prathapa, Janindu — more addable in-app.
 - **Historical prototype data (Aug 12-18):** start fresh; re-enter manually later

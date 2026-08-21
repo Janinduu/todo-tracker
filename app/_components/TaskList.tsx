@@ -65,7 +65,7 @@ export function TaskList({
           No tasks yet.
         </p>
       ) : (
-        <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+        <div className="divide-y divide-line overflow-hidden card">
           {[...openTasks, ...doneTasks].map((task) => (
             <TaskRow
               key={task.id}
@@ -121,7 +121,7 @@ function AddTaskForm({
   }
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-3">
+    <div className="card p-3">
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { monthBounds, toMonthKey } from "@/lib/dates";
+import { formatRange, monthBounds, toMonthKey } from "@/lib/dates";
 
-export const UNASSIGNED = "__unassigned__";
+export const UNASSIGNED_LABEL = "Team";
 export const STUCK_THRESHOLD = 3;
 
 const taskInclude = {
@@ -57,46 +57,39 @@ export async function getAllMembers() {
   });
 }
 
-export async function countOpenTasksInCurrentPeriod(): Promise<number> {
-  const latest = await prisma.period.findFirst({ orderBy: { endDate: "desc" } });
-  if (!latest) return 0;
-  return prisma.task.count({ where: { periodId: latest.id, status: "open" } });
-}
-
 /* ---------------------------------------------------------------- reports */
 
-export type PersonRow = {
-  id: string;
-  name: string;
-  active: boolean;
-  assigned: number;
-  completed: number;
-  missed: number;
-};
-
-export type StuckRow = {
+export type MonthTaskRow = {
   id: string;
   text: string;
-  carriedCount: number;
+  /** Empty means nobody was assigned — a shared team task. */
   owners: string[];
+  /** The week it was finished in, or the week it currently sits in. */
+  weekLabel: string;
+  carriedCount: number;
 };
+
+export type StuckRow = MonthTaskRow;
 
 export type MonthlyReport = {
   monthKey: string;
   periodCount: number;
   totals: { completed: number; missed: number; total: number };
-  people: PersonRow[];
+  completed: MonthTaskRow[];
+  missed: MonthTaskRow[];
   stuck: StuckRow[];
 };
 
 /**
  * Monthly summary (PRD §6.5).
  *
- * Counts are deduplicated by lineage, not by row. A to-do carried across three
- * weeks of the same month exists as three Task rows, and counting rows would
- * report it as three separate items — inflating both "assigned" and "missed"
- * for whoever owns it. Grouping on `originTaskId ?? id` collapses each chain
- * back to the one real to-do it represents.
+ * Reports the work itself — every task completed and every task missed, each
+ * labelled with whoever owned it — rather than per-person totals.
+ *
+ * Rows are deduplicated by lineage. A to-do carried across three weeks of the
+ * same month exists as three Task rows, and listing rows would show it three
+ * times. Grouping on `originTaskId ?? id` collapses each chain back to the one
+ * real to-do it represents.
  */
 export async function getMonthlyReport(monthKey: string): Promise<MonthlyReport> {
   const { start, end } = monthBounds(monthKey);
@@ -107,28 +100,22 @@ export async function getMonthlyReport(monthKey: string): Promise<MonthlyReport>
     orderBy: { endDate: "asc" },
   });
 
-  const members = await prisma.teamMember.findMany({ orderBy: { name: "asc" } });
-
-  const empty: MonthlyReport = {
-    monthKey,
-    periodCount: 0,
-    totals: { completed: 0, missed: 0, total: 0 },
-    people: members
-      .filter((m) => m.active)
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        active: m.active,
-        assigned: 0,
-        completed: 0,
-        missed: 0,
-      })),
-    stuck: [],
-  };
-
-  if (periods.length === 0) return empty;
+  if (periods.length === 0) {
+    return {
+      monthKey,
+      periodCount: 0,
+      totals: { completed: 0, missed: 0, total: 0 },
+      completed: [],
+      missed: [],
+      stuck: [],
+    };
+  }
 
   const periodOrder = new Map(periods.map((p, i) => [p.id, i]));
+  const periodLabel = new Map(
+    periods.map((p) => [p.id, formatRange(p.startDate, p.endDate)]),
+  );
+
   const tasks = await prisma.task.findMany({
     where: { periodId: { in: periods.map((p) => p.id) } },
     include: taskInclude,
@@ -143,80 +130,55 @@ export async function getMonthlyReport(monthKey: string): Promise<MonthlyReport>
     else chains.set(key, [task]);
   }
 
-  const counts = new Map<string, { assigned: number; completed: number; missed: number }>();
-  const bump = (id: string, done: boolean) => {
-    const row = counts.get(id) ?? { assigned: 0, completed: 0, missed: 0 };
-    row.assigned += 1;
-    if (done) row.completed += 1;
-    else row.missed += 1;
-    counts.set(id, row);
-  };
+  const toRow = (task: TaskWithOwners): MonthTaskRow => ({
+    id: task.id,
+    text: task.text,
+    owners: task.owners.map((o) => o.member.name).sort(),
+    weekLabel: periodLabel.get(task.periodId) ?? "",
+    carriedCount: task.carriedCount,
+  });
 
-  let completed = 0;
-  let missed = 0;
+  const completed: MonthTaskRow[] = [];
+  const missed: MonthTaskRow[] = [];
 
   for (const chain of chains.values()) {
     chain.sort(
       (a, b) => (periodOrder.get(a.periodId) ?? 0) - (periodOrder.get(b.periodId) ?? 0),
     );
-    // A chain is complete if it was ticked off in any week this month; a done
-    // task is never carried further, so that tick is always the final row.
-    const isDone = chain.some((t) => t.status === "done");
-    if (isDone) completed += 1;
-    else missed += 1;
 
-    // Owners can be edited over time — the most recent week is the truth.
-    const latest = chain[chain.length - 1];
-    if (latest.owners.length === 0) {
-      bump(UNASSIGNED, isDone);
-    } else {
-      for (const owner of latest.owners) bump(owner.memberId, isDone);
-    }
+    // A done task is never carried further, so the completed row is always the
+    // last one in the chain when it exists at all.
+    const doneRow = chain.find((t) => t.status === "done");
+    if (doneRow) completed.push(toRow(doneRow));
+    else missed.push(toRow(chain[chain.length - 1]));
   }
 
-  const people: PersonRow[] = members
-    .map((member) => ({
-      id: member.id,
-      name: member.name,
-      active: member.active,
-      ...(counts.get(member.id) ?? { assigned: 0, completed: 0, missed: 0 }),
-    }))
-    // Keep inactive members out unless they actually did something this month.
-    .filter((row) => row.active || row.assigned > 0);
-
-  const unassigned = counts.get(UNASSIGNED);
-  if (unassigned) {
-    people.push({
-      id: UNASSIGNED,
-      name: "Team (unassigned)",
-      active: true,
-      ...unassigned,
-    });
-  }
+  // Completed reads chronologically; missed leads with whatever is most overdue.
+  completed.sort(
+    (a, b) => a.weekLabel.localeCompare(b.weekLabel) || a.text.localeCompare(b.text),
+  );
+  missed.sort(
+    (a, b) => b.carriedCount - a.carriedCount || a.text.localeCompare(b.text),
+  );
 
   // Stuck items reflect current state, so they come from the most recent week
   // in this month rather than from every week in it.
-  const lastPeriod = periods[periods.length - 1];
-  const stuck: StuckRow[] = tasks
-    .filter(
-      (t) =>
-        t.periodId === lastPeriod.id &&
-        t.status === "open" &&
-        t.carriedCount >= STUCK_THRESHOLD,
-    )
-    .sort((a, b) => b.carriedCount - a.carriedCount)
-    .map((t) => ({
-      id: t.id,
-      text: t.text,
-      carriedCount: t.carriedCount,
-      owners: t.owners.map((o) => o.member.name),
-    }));
+  const lastPeriodId = periods[periods.length - 1].id;
+  const stuck = missed.filter((row) => {
+    const task = tasks.find((t) => t.id === row.id);
+    return task?.periodId === lastPeriodId && row.carriedCount >= STUCK_THRESHOLD;
+  });
 
   return {
     monthKey,
     periodCount: periods.length,
-    totals: { completed, missed, total: completed + missed },
-    people,
+    totals: {
+      completed: completed.length,
+      missed: missed.length,
+      total: completed.length + missed.length,
+    },
+    completed,
+    missed,
     stuck,
   };
 }

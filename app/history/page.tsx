@@ -16,7 +16,7 @@ export default async function HistoryPage() {
           No weeks logged yet.
         </p>
       ) : (
-        <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+        <div className="divide-y divide-line overflow-hidden card">
           {periods.map((period, index) => (
             <Link
               key={period.id}

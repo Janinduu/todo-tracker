@@ -20,7 +20,7 @@ export function TeamManager({ members }: { members: MemberView[] }) {
         </p>
       )}
 
-      <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+      <div className="divide-y divide-line overflow-hidden card">
         {active.map((member) => (
           <MemberRow key={member.id} member={member} onError={setError} />
         ))}
@@ -34,7 +34,7 @@ export function TeamManager({ members }: { members: MemberView[] }) {
       {inactive.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-xs font-medium text-muted">Inactive</h2>
-          <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+          <div className="divide-y divide-line overflow-hidden card">
             {inactive.map((member) => (
               <MemberRow key={member.id} member={member} onError={setError} />
             ))}

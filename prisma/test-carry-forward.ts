@@ -10,7 +10,7 @@
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
 import { createNextPeriod } from "../lib/period-logic";
-import { getMonthlyReport, UNASSIGNED } from "../lib/queries";
+import { getMonthlyReport } from "../lib/queries";
 import { parseDateInput } from "../lib/dates";
 
 let failures = 0;
@@ -171,17 +171,35 @@ async function main() {
       total: 3,
     });
 
-    const byName = Object.fromEntries(
-      report.people.map((p) => [p.name, { a: p.assigned, c: p.completed, m: p.missed }]),
-    );
-    check("Thanveer", byName["Thanveer"], { a: 1, c: 1, m: 0 });
-    check("Prathapa", byName["Prathapa"], { a: 1, c: 1, m: 0 });
-    check("Janindu", byName["Janindu"], { a: 1, c: 1, m: 0 });
-    check("unassigned bucket", byName["Team (unassigned)"], { a: 1, c: 0, m: 1 });
+    // The report lists the work itself, not per-person tallies.
     check(
-      "unassigned row uses the sentinel id",
-      report.people.find((p) => p.name === "Team (unassigned)")?.id,
-      UNASSIGNED,
+      "completed list holds A and B, once each",
+      report.completed.map((r) => r.text).sort(),
+      ["A — single owner", "B — two owners"],
+    );
+    check(
+      "A is credited to its owner",
+      report.completed.find((r) => r.text.startsWith("A"))?.owners,
+      ["Thanveer"],
+    );
+    check(
+      "B is credited to both owners",
+      report.completed.find((r) => r.text.startsWith("B"))?.owners,
+      ["Janindu", "Prathapa"],
+    );
+    check(
+      "A is filed under the week it was finished in",
+      report.completed.find((r) => r.text.startsWith("A"))?.weekLabel,
+      "Aug 1 → Aug 8",
+    );
+
+    check("missed list holds only C", report.missed.map((r) => r.text), ["C — no owner"]);
+    check("missed C shows no owners (a team task)", report.missed[0]?.owners, []);
+    check("missed C reports its carry count", report.missed[0]?.carriedCount, 3);
+    check(
+      "missed C is filed under the latest week",
+      report.missed[0]?.weekLabel,
+      "Aug 22 → Aug 29",
     );
 
     check("one stuck item", report.stuck.length, 1);

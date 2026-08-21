@@ -1,0 +1,86 @@
+// Hii.Health Biomarker Co-Team Tracker — data model (PRD §5)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TaskStatus {
+  open
+  done
+}
+
+/// A person who can own tasks. Never hard-deleted — `active` is a soft-remove
+/// so historical tasks keep displaying the right name.
+model TeamMember {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now()) @map("created_at")
+  tasks     TaskOwner[]
+
+  @@index([active])
+  @@map("team_members")
+}
+
+/// One week between meetings. start_date == previous period's end_date,
+/// which keeps the timeline continuous with no gaps.
+model Period {
+  id        String   @id @default(uuid()) @db.Uuid
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+  tasks     Task[]
+
+  @@unique([startDate, endDate])
+  @@index([endDate])
+  @@map("periods")
+}
+
+/// A to-do inside one period. When it carries forward, a NEW row is created in
+/// the next period — this row is never mutated or deleted, so history is intact.
+model Task {
+  id           String     @id @default(uuid()) @db.Uuid
+  periodId     String     @map("period_id") @db.Uuid
+  text         String
+  status       TaskStatus @default(open)
+  notes        String?
+  /// Increments on each carry-forward. Drives the "carried 2x" badge.
+  carriedCount Int        @default(0) @map("carried_count")
+  /// Earliest ancestor in the carry-forward chain (null on a first occurrence).
+  originTaskId String?    @map("origin_task_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  completedAt  DateTime?  @map("completed_at")
+
+  period      Period      @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  origin      Task?       @relation("TaskLineage", fields: [originTaskId], references: [id], onDelete: SetNull)
+  descendants Task[]      @relation("TaskLineage")
+  owners      TaskOwner[]
+
+  @@index([periodId])
+  @@index([originTaskId])
+  @@index([status])
+  @@index([status, carriedCount])
+  @@map("tasks")
+}
+
+/// Join table: a task has 0, 1, or many owners. Zero owners == a shared team
+/// task, which is a valid and expected state (PRD §5).
+model TaskOwner {
+  taskId   String @map("task_id") @db.Uuid
+  memberId String @map("member_id") @db.Uuid
+
+  task   Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: members are soft-removed via `active`. If something
+  // ever attempts a hard delete, this fails loudly instead of silently
+  // erasing ownership history.
+  member TeamMember @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, memberId])
+  @@index([memberId])
+  @@map("task_owners")
+}

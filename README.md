@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Biomarker Tracker
 
-## Getting Started
+Weekly to-do tracking for the Hii.Health Biomarker Co-Team. Spec: [PRD-hii-health-tracker.md](PRD-hii-health-tracker.md).
 
-First, run the development server:
+Next.js 16 (App Router) · Prisma 7 · Supabase Postgres · Tailwind 4 · Recharts.
+
+## Setup
 
 ```bash
+npm install
+cp .env.example .env      # then fill in the database password
+npx prisma migrate deploy
+npx tsx prisma/seed.ts    # adds Thanveer, Prathapa, Janindu — safe to re-run
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Both connection strings are required. `DATABASE_URL` is the pooled connection
+(port 6543) used at runtime; `DIRECT_URL` is the session connection (port 5432)
+used for migrations, which cannot run through the transaction pooler.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+If the database password contains `@ : / ? # & +`, percent-encode it — those
+characters are reserved in a URI and will otherwise break the connection string.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tests
 
-## Learn More
+```bash
+npx tsx prisma/test-carry-forward.ts
+```
 
-To learn more about Next.js, take a look at the following resources:
+Drives four fake weeks through the real carry-forward engine and the monthly
+rollup, then deletes what it created. Refuses to run if any periods already
+exist, so it cannot touch real meeting data.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## How it works
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Each week is a `Period`, and `start_date` is always inherited from the previous
+week's `end_date`, so the timeline has no gaps.
 
-## Deploy on Vercel
+"Log next meeting" creates the next period and copies every still-open task into
+it as a **new row** — same text and owner set, `carried_count` incremented, and
+`origin_task_id` pointing at the earliest ancestor in the chain. Completed tasks
+are never copied and nothing is ever mutated or deleted, so every past week stays
+exactly as it was.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+That lineage pointer is what makes the monthly report honest: a to-do carried
+across four weeks exists as four rows, and the report groups on
+`origin_task_id ?? id` to count it once rather than four times.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tasks can have zero owners (a shared team task, reported under
+"Team (unassigned)"), one, or several — a task with three owners counts toward
+all three.
+
+Team members are soft-removed via `active`, never deleted, so their name keeps
+rendering on tasks they owned in past weeks.
+
+## Deploying
+
+Push to GitHub, import the repo on Vercel, and set `DATABASE_URL` and
+`DIRECT_URL` in the project's environment variables. `postinstall` runs
+`prisma generate`; run `npx prisma migrate deploy` against production once.
+
+There is no authentication — anyone with the URL can read and edit. That was a
+deliberate v1 decision (PRD §3).

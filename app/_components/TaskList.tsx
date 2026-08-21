@@ -66,11 +66,12 @@ export function TaskList({
         </p>
       ) : (
         <div className="divide-y divide-line overflow-hidden card">
-          {[...openTasks, ...doneTasks].map((task) => (
+          {[...openTasks, ...doneTasks].map((task, index) => (
             <TaskRow
               key={task.id}
               task={task}
               members={members}
+              index={index}
               onToggle={() => toggle(task)}
               onError={setError}
             />
@@ -162,11 +163,13 @@ function AddTaskForm({
 function TaskRow({
   task,
   members,
+  index,
   onToggle,
   onError,
 }: {
   task: TaskView;
   members: MemberView[];
+  index: number;
   onToggle: () => void;
   onError: (message: string | null) => void;
 }) {
@@ -249,7 +252,10 @@ function TaskRow({
   }
 
   return (
-    <div className="group flex items-start gap-3 px-3 py-2.5">
+    <div
+      className="row-in group flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-canvas/40"
+      style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+    >
       <input
         type="checkbox"
         checked={done}
@@ -302,7 +308,7 @@ function TaskRow({
           onClick={remove}
           disabled={pending}
           aria-label="Delete task"
-          className="rounded px-1.5 py-1 text-xs text-muted hover:bg-warn-soft hover:text-warn"
+          className="icon-spin rounded px-1.5 py-1 text-xs text-muted hover:bg-warn-soft hover:text-warn"
         >
           ✕
         </button>

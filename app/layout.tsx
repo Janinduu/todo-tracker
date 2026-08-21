@@ -12,6 +12,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
+        {/* Scroll-reveal starts at opacity 0 and is un-hidden by JS. Without
+            this, a browser with scripting off would render blank sections. */}
+        <noscript>
+          <style>{`.reveal { opacity: 1 !important; transform: none !important; }`}</style>
+        </noscript>
         <header className="sticky top-0 z-10 border-b border-line bg-surface/70 backdrop-blur-md">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-3">
             <Link

@@ -1,4 +1,5 @@
 import { TeamManager } from "@/app/_components/TeamManager";
+import { Reveal } from "@/app/_components/Reveal";
 import { getAllMembers } from "@/lib/queries";
 import type { MemberView } from "@/lib/types";
 
@@ -16,7 +17,9 @@ export default async function TeamPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-semibold tracking-tight">Team</h1>
-      <TeamManager members={memberViews} />
+      <Reveal>
+        <TeamManager members={memberViews} />
+      </Reveal>
     </div>
   );
 }

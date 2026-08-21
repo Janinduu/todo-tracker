@@ -155,9 +155,12 @@ Rows are deduplicated by lineage — a task carried across several weeks appears
   Co-Team**.
 - Simple, minimal, **light** color scheme. One restrained accent color, plenty
   of whitespace.
-- Background is a soft tinted wash (two low-opacity radial gradients over a
-  vertical gradient), not a flat fill. Panels sit slightly translucent on top
-  with a hairline shadow so the tint reads through.
+- Background is a flat light sage green (`#e8eee6`); panels sit on it as
+  near-white cards with a hairline shadow.
+- Restrained motion: buttons press on click, the checkbox pops when ticked,
+  the delete icon rotates on hover, list rows stagger in, and page sections
+  fade up as they scroll into view. All of it is disabled under
+  `prefers-reduced-motion`.
 - **No filler copy** — no explanatory paragraphs, taglines, marketing text, or
   onboarding blurbs. Labels and data only.
 - Dense enough to scan a full week of tasks without scrolling where possible.

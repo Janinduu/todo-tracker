@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Reveal } from "@/app/_components/Reveal";
 import { getPeriodSummaries } from "@/lib/queries";
 import { formatRange } from "@/lib/dates";
 
@@ -16,12 +17,14 @@ export default async function HistoryPage() {
           No weeks logged yet.
         </p>
       ) : (
+        <Reveal>
         <div className="divide-y divide-line overflow-hidden card">
           {periods.map((period, index) => (
             <Link
               key={period.id}
               href={`/history/${period.id}`}
-              className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-canvas/60"
+              className="row-in flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-canvas/60"
+              style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
             >
               <span className="flex items-center gap-2 text-sm">
                 {formatRange(period.startDate, period.endDate)}
@@ -38,6 +41,7 @@ export default async function HistoryPage() {
             </Link>
           ))}
         </div>
+        </Reveal>
       )}
     </div>
   );

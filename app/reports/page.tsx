@@ -1,4 +1,5 @@
 import { MonthPicker } from "@/app/_components/MonthPicker";
+import { Reveal } from "@/app/_components/Reveal";
 import {
   getAvailableMonths,
   getMonthlyReport,
@@ -39,43 +40,51 @@ export default async function ReportsPage({
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label="Completed" value={report.totals.completed} />
-            <Stat label="Missed" value={report.totals.missed} />
-            <Stat label="Total" value={report.totals.total} />
-          </div>
+          <Reveal>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Completed" value={report.totals.completed} />
+              <Stat label="Missed" value={report.totals.missed} />
+              <Stat label="Total" value={report.totals.total} />
+            </div>
+          </Reveal>
 
           <p className="text-xs text-faint">
             {report.periodCount} {report.periodCount === 1 ? "week" : "weeks"} in
             this month. A task carried across several weeks is listed once.
           </p>
 
-          <TaskSection
-            title="Completed"
-            count={report.completed.length}
-            rows={report.completed}
-            emptyText="Nothing completed this month."
-            tone="accent"
-          />
+          <Reveal>
+            <TaskSection
+              title="Completed"
+              count={report.completed.length}
+              rows={report.completed}
+              emptyText="Nothing completed this month."
+              tone="accent"
+            />
+          </Reveal>
 
-          <TaskSection
-            title="Missed"
-            count={report.missed.length}
-            rows={report.missed}
-            emptyText="Nothing missed this month."
-            tone="warn"
-            showCarried
-          />
+          <Reveal>
+            <TaskSection
+              title="Missed"
+              count={report.missed.length}
+              rows={report.missed}
+              emptyText="Nothing missed this month."
+              tone="warn"
+              showCarried
+            />
+          </Reveal>
 
-          <TaskSection
-            title="Stuck"
-            hint={`carried ${STUCK_THRESHOLD}x or more, still open`}
-            count={report.stuck.length}
-            rows={report.stuck}
-            emptyText="Nothing stuck."
-            tone="warn"
-            showCarried
-          />
+          <Reveal>
+            <TaskSection
+              title="Stuck"
+              hint={`carried ${STUCK_THRESHOLD}x or more, still open`}
+              count={report.stuck.length}
+              rows={report.stuck}
+              emptyText="Nothing stuck."
+              tone="warn"
+              showCarried
+            />
+          </Reveal>
         </>
       )}
     </div>
@@ -115,10 +124,11 @@ function TaskSection({
         </p>
       ) : (
         <div className="card divide-y divide-line overflow-hidden">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <div
               key={row.id}
-              className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-4 py-2.5"
+              className="row-in flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-4 py-2.5"
+              style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm break-words">{row.text}</p>

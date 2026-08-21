@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
-/* Light, minimal. One restrained accent. No dark mode — this is a single
+/* Light, minimal, flat sage-green canvas. No dark mode — this is a single
    working tool, and forcing light keeps the screen-share predictable. */
 @theme {
-  --color-canvas: #f5f6f4;
-  --color-surface: #ffffff;
-  --color-ink: #1a1a19;
-  --color-muted: #6f6f6b;
-  --color-faint: #9a9a95;
-  --color-line: #e4e5e0;
-  --color-accent: #2f6f5e;
-  --color-accent-soft: #e8f1ee;
-  --color-warn: #9a5b1f;
-  --color-warn-soft: #fbf0e2;
+  --color-canvas: #e8eee6;
+  --color-surface: #fcfcfa;
+  --color-ink: #1c261f;
+  --color-muted: #64705f;
+  --color-faint: #93a08d;
+  --color-line: #d5ded1;
+  --color-accent: #2b5f43;
+  --color-accent-soft: #dbe7dc;
+  --color-warn: #8a5320;
+  --color-warn-soft: #f4e6d4;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
@@ -23,45 +23,105 @@ html {
 }
 
 body {
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
-
-  /* Two very soft colour washes over a vertical gradient. Fixed attachment so
-     the wash stays put while content scrolls, and kept low-opacity so it reads
-     as depth rather than decoration behind a dense task list. */
-  background-color: var(--color-canvas);
-  background-image:
-    radial-gradient(
-      900px 520px at 10% -10%,
-      color-mix(in srgb, var(--color-accent) 13%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      760px 460px at 95% 2%,
-      color-mix(in srgb, var(--color-warn) 9%, transparent),
-      transparent 64%
-    ),
-    linear-gradient(180deg, #fcfcfb 0%, #f2f4f1 100%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
-/* Panels sit slightly translucent on the wash so the tint shows through,
-   with a hairline shadow for lift. */
 .card {
   border-radius: 0.5rem;
   border: 1px solid var(--color-line);
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 1px 2px rgb(26 26 25 / 0.04),
-    0 4px 16px -8px rgb(26 26 25 / 0.06);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(28 38 31 / 0.04);
 }
 
 input[type="checkbox"] {
   accent-color: var(--color-accent);
+  transition: transform 140ms ease;
+}
+input[type="checkbox"]:active {
+  transform: scale(0.86);
+}
+/* A brief pop the moment an item is ticked off. */
+input[type="checkbox"]:checked {
+  animation: tick 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 ::placeholder {
   color: var(--color-faint);
+}
+
+/* ------------------------------------------------------------- animations */
+
+@keyframes tick {
+  0% { transform: scale(0.7); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Scroll-reveal, driven by the Reveal client component. Sections start
+   lowered and fade up as they enter the viewport. */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Rows stagger in on first paint so a long week doesn't arrive all at once. */
+.row-in {
+  animation: rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Every button gets a small press. */
+button:not(:disabled) {
+  transition:
+    transform 120ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+button:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+/* The ✕ delete icon spins a quarter turn on hover. */
+.icon-spin {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.icon-spin:hover {
+  transform: rotate(90deg);
+}
+
+/* Anyone who has asked their OS to stop moving things gets no motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
 }

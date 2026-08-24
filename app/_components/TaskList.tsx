@@ -5,7 +5,7 @@ import { addTask, deleteTask, setTaskStatus, updateTask } from "@/lib/actions";
 import type { MemberView, TaskView } from "@/lib/types";
 import { DEFAULT_PRIORITY, PRIORITY_STRIPE, type Priority } from "@/lib/priority";
 import { OwnerPicker } from "./OwnerPicker";
-import { PriorityChip, PriorityPicker } from "./PriorityPicker";
+import { PriorityChip, PrioritySelect } from "./PriorityPicker";
 
 export function TaskList({
   periodId,
@@ -132,35 +132,41 @@ function AddTaskForm({
           e.preventDefault();
           submit();
         }}
-        className="flex gap-2"
+        className="space-y-2.5"
       >
-        <input
-          ref={inputRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Add a task"
-          className="min-w-0 flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-accent"
-        />
-        <button
-          type="submit"
-          disabled={pending || !text.trim()}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40"
-        >
-          Add
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Add a task"
+            className="min-w-[12rem] flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <PrioritySelect value={priority} onChange={setPriority} />
+          <button
+            type="submit"
+            disabled={pending || !text.trim()}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+
+        {/* Owners get their own labelled line — previously the name chips, the
+            hint and the priority chips ran together as one strip. */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
+          <span className="text-xs whitespace-nowrap text-muted">Owners</span>
+          <OwnerPicker
+            members={members}
+            selected={owners}
+            onToggle={(id) =>
+              setOwners((prev) =>
+                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+              )
+            }
+          />
+        </div>
       </form>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <OwnerPicker
-          members={members}
-          selected={owners}
-          onToggle={(id) =>
-            setOwners((prev) =>
-              prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-            )
-          }
-        />
-        <PriorityPicker value={priority} onChange={setPriority} />
-      </div>
     </div>
   );
 }
@@ -227,18 +233,19 @@ function TaskRow({
         />
         {/* Inactive members stay selectable here so an existing assignment can
             be kept while editing a task's text. */}
-        <OwnerPicker
-          members={members.filter(
-            (m) => m.active || owners.includes(m.id),
-          )}
-          selected={owners}
-          onToggle={(id) =>
-            setOwners((prev) =>
-              prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-            )
-          }
-        />
-        <PriorityPicker value={priority} onChange={setPriority} disabled={pending} />
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs whitespace-nowrap text-muted">Owners</span>
+          <OwnerPicker
+            members={members.filter((m) => m.active || owners.includes(m.id))}
+            selected={owners}
+            onToggle={(id) =>
+              setOwners((prev) =>
+                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+              )
+            }
+          />
+        </div>
+        <PrioritySelect value={priority} onChange={setPriority} disabled={pending} />
         <div className="flex gap-2">
           <button
             onClick={save}
@@ -289,7 +296,6 @@ function TaskRow({
           {task.text}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <PriorityChip priority={task.priority} />
           {task.owners.length === 0 ? (
             <span className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-muted">
               Team
@@ -312,7 +318,14 @@ function TaskRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      {/* Right-hand side: priority always visible, actions on hover. Keeping it
+          away from the owner chips stops the two being read as one list. */}
+      <div className="flex shrink-0 items-center gap-2">
+        <span className={done ? "opacity-50" : ""}>
+          <PriorityChip priority={task.priority} />
+        </span>
+
+        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <button
           onClick={() => setEditing(true)}
           disabled={pending}
@@ -329,6 +342,7 @@ function TaskRow({
         >
           ✕
         </button>
+        </div>
       </div>
     </div>
   );

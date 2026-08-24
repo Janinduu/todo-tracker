@@ -14,6 +14,13 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   low: "Low",
 };
 
+/** Spelled out, so a chip on its own is never ambiguous. */
+export const PRIORITY_FULL: Record<Priority, string> = {
+  high: "High priority",
+  medium: "Medium priority",
+  low: "Low priority",
+};
+
 /** Chip styling — soft background, readable text, matching border. */
 export const PRIORITY_CHIP: Record<Priority, string> = {
   high: "bg-prio-high-soft text-prio-high border-prio-high/30",

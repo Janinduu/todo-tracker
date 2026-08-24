@@ -102,14 +102,18 @@ assignments are copied along with the task when it carries forward.
 - **Sorted highest priority first** — high, then medium, then low; oldest first
   within a level.
 - Task list per row: checkbox (toggle open/done), a coloured left stripe for
-  priority, task text, priority chip, owner chips (0-many; shows "Team" when
-  unassigned), carried-count badge when `carried_count > 0`.
-- Inline add: text field + multi-select owner picker (empty means a team task) +
-  priority picker + "Add".
+  priority, task text, owner chips (0-many; shows "Team" when unassigned) and
+  carried-count badge on the left; the priority chip sits on the **right**, so
+  it is not read as part of the owner list.
+- Inline add, in two labelled rows: text field + a **Priority dropdown** +
+  "Add"; then an "Owners" row of name chips. Grouping all three as loose chips
+  on one line made them indistinguishable.
 - Edit and delete on each task; edit changes text, owners, and priority.
 
-**Priority scale.** Low = green, medium = amber, high = red. Every appearance
-pairs the colour with the word, since red/green alone is the exact pair
+**Priority scale.** Low = green, medium = amber, high = red. Chips and dropdown
+options read "High priority" / "Medium priority" / "Low priority" in full — a
+bare "High" beside owner names is ambiguous. Every appearance pairs the colour
+with the word, since red/green alone is the exact pair
 colour-blind readers cannot separate. New tasks default to **medium** — the
 neutral middle — and the picker is visible when adding, so the level is a choice
 rather than a silent assumption. Priority travels with a task when it carries

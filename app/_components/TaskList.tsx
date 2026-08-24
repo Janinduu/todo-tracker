@@ -3,7 +3,9 @@
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addTask, deleteTask, setTaskStatus, updateTask } from "@/lib/actions";
 import type { MemberView, TaskView } from "@/lib/types";
+import { DEFAULT_PRIORITY, PRIORITY_STRIPE, type Priority } from "@/lib/priority";
 import { OwnerPicker } from "./OwnerPicker";
+import { PriorityChip, PriorityPicker } from "./PriorityPicker";
 
 export function TaskList({
   periodId,
@@ -99,6 +101,7 @@ function AddTaskForm({
 }) {
   const [text, setText] = useState("");
   const [owners, setOwners] = useState<string[]>([]);
+  const [priority, setPriority] = useState<Priority>(DEFAULT_PRIORITY);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -109,11 +112,12 @@ function AddTaskForm({
     // Clear immediately so the next item can be typed without waiting.
     setText("");
     setOwners([]);
+    setPriority(DEFAULT_PRIORITY);
     onError(null);
     inputRef.current?.focus();
 
     startTransition(async () => {
-      const result = await addTask(periodId, trimmed, owners);
+      const result = await addTask(periodId, trimmed, owners, priority);
       if (!result.ok) {
         onError(result.error);
         setText(trimmed);
@@ -145,7 +149,7 @@ function AddTaskForm({
           Add
         </button>
       </form>
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <OwnerPicker
           members={members}
           selected={owners}
@@ -155,6 +159,7 @@ function AddTaskForm({
             )
           }
         />
+        <PriorityPicker value={priority} onChange={setPriority} />
       </div>
     </div>
   );
@@ -176,6 +181,7 @@ function TaskRow({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(task.text);
   const [owners, setOwners] = useState(task.owners.map((o) => o.id));
+  const [priority, setPriority] = useState<Priority>(task.priority);
   const [pending, startTransition] = useTransition();
 
   const done = task.status === "done";
@@ -185,7 +191,7 @@ function TaskRow({
     if (!trimmed) return;
     onError(null);
     startTransition(async () => {
-      const result = await updateTask(task.id, trimmed, owners);
+      const result = await updateTask(task.id, trimmed, owners, priority);
       if (!result.ok) onError(result.error);
       else setEditing(false);
     });
@@ -194,6 +200,7 @@ function TaskRow({
   function cancel() {
     setText(task.text);
     setOwners(task.owners.map((o) => o.id));
+    setPriority(task.priority);
     setEditing(false);
   }
 
@@ -231,6 +238,7 @@ function TaskRow({
             )
           }
         />
+        <PriorityPicker value={priority} onChange={setPriority} disabled={pending} />
         <div className="flex gap-2">
           <button
             onClick={save}
@@ -253,9 +261,17 @@ function TaskRow({
 
   return (
     <div
-      className="row-in group flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-canvas/40"
+      className="row-in group relative flex items-start gap-3 py-2.5 pr-3 pl-4 transition-colors hover:bg-canvas/40"
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
     >
+      {/* A 3px colour stripe makes the list scannable at a glance; the chip
+          below carries the same information as a word. */}
+      <span
+        aria-hidden
+        className={`absolute top-0 bottom-0 left-0 w-[3px] ${
+          PRIORITY_STRIPE[task.priority]
+        } ${done ? "opacity-30" : ""}`}
+      />
       <input
         type="checkbox"
         checked={done}
@@ -273,6 +289,7 @@ function TaskRow({
           {task.text}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <PriorityChip priority={task.priority} />
           {task.owners.length === 0 ? (
             <span className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-muted">
               Team

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { parseDateInput } from "@/lib/dates";
 import { createNextPeriod } from "@/lib/period-logic";
+import { DEFAULT_PRIORITY, isPriority, type Priority } from "@/lib/priority";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -22,6 +23,7 @@ export async function addTask(
   periodId: string,
   text: string,
   ownerIds: string[],
+  priority: Priority = DEFAULT_PRIORITY,
 ): Promise<ActionResult> {
   const trimmed = text.trim();
   if (!trimmed) return fail("Task can't be empty.");
@@ -33,6 +35,9 @@ export async function addTask(
     data: {
       periodId,
       text: trimmed,
+      // Guard the value rather than trusting it — this crosses the client
+      // boundary and is a database enum on the other side.
+      priority: isPriority(priority) ? priority : DEFAULT_PRIORITY,
       owners: { create: dedupe(ownerIds).map((memberId) => ({ memberId })) },
     },
   });
@@ -65,6 +70,7 @@ export async function updateTask(
   taskId: string,
   text: string,
   ownerIds: string[],
+  priority: Priority = DEFAULT_PRIORITY,
 ): Promise<ActionResult> {
   const trimmed = text.trim();
   if (!trimmed) return fail("Task can't be empty.");
@@ -73,9 +79,13 @@ export async function updateTask(
   if (!task) return fail("That task no longer exists.");
 
   const nextOwners = dedupe(ownerIds);
+  const nextPriority = isPriority(priority) ? priority : task.priority;
 
   await prisma.$transaction([
-    prisma.task.update({ where: { id: taskId }, data: { text: trimmed } }),
+    prisma.task.update({
+      where: { id: taskId },
+      data: { text: trimmed, priority: nextPriority },
+    }),
     prisma.taskOwner.deleteMany({ where: { taskId } }),
     prisma.taskOwner.createMany({
       data: nextOwners.map((memberId) => ({ taskId, memberId })),

@@ -1,3 +1,4 @@
+import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatRange, monthBounds, toMonthKey } from "@/lib/dates";
 
@@ -8,6 +9,13 @@ const taskInclude = {
   owners: { include: { member: true } },
 } as const;
 
+// High → medium → low, then oldest first within a level. The TaskPriority enum
+// is declared low→high in the schema, so "desc" puts high at the top.
+const TASK_ORDER: Prisma.TaskOrderByWithRelationInput[] = [
+  { priority: "desc" },
+  { createdAt: "asc" },
+];
+
 export type TaskWithOwners = Awaited<
   ReturnType<typeof prisma.task.findMany<{ include: typeof taskInclude }>>
 >[number];
@@ -16,14 +24,14 @@ export type TaskWithOwners = Awaited<
 export async function getCurrentPeriod() {
   return prisma.period.findFirst({
     orderBy: { endDate: "desc" },
-    include: { tasks: { include: taskInclude, orderBy: { createdAt: "asc" } } },
+    include: { tasks: { include: taskInclude, orderBy: TASK_ORDER } },
   });
 }
 
 export async function getPeriod(periodId: string) {
   return prisma.period.findUnique({
     where: { id: periodId },
-    include: { tasks: { include: taskInclude, orderBy: { createdAt: "asc" } } },
+    include: { tasks: { include: taskInclude, orderBy: TASK_ORDER } },
   });
 }
 

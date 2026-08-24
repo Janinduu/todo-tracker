@@ -28,8 +28,10 @@ npx tsx prisma/test-carry-forward.ts
 ```
 
 Drives four fake weeks through the real carry-forward engine and the monthly
-rollup, then deletes what it created. Refuses to run if any periods already
-exist, so it cannot touch real meeting data.
+rollup, then deletes what it created. Safe to run alongside live data: its weeks
+sit in March 2019, it carries forward from an explicit source period rather than
+"the latest week", cleanup is scoped to the ids it created, and it asserts the
+live row counts are unchanged at the end.
 
 ## How it works
 
@@ -49,6 +51,10 @@ across four weeks exists as four rows, and the report groups on
 Tasks can have zero owners (a shared team task, reported under
 "Team (unassigned)"), one, or several — a task with three owners counts toward
 all three.
+
+Each task carries a priority (low / medium / high, defaulting to medium). The
+current week sorts highest first, and priority travels with a task when it
+carries forward.
 
 Team members are soft-removed via `active`, never deleted, so their name keeps
 rendering on tasks they owned in past weeks.

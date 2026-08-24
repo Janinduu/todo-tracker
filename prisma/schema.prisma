@@ -14,6 +14,14 @@ enum TaskStatus {
   done
 }
 
+/// Declared low → high so Postgres orders the enum that way, which lets the
+/// current-week query sort `priority: "desc"` to put high first.
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
 /// A person who can own tasks. Never hard-deleted — `active` is a soft-remove
 /// so historical tasks keep displaying the right name.
 model TeamMember {
@@ -44,17 +52,20 @@ model Period {
 /// A to-do inside one period. When it carries forward, a NEW row is created in
 /// the next period — this row is never mutated or deleted, so history is intact.
 model Task {
-  id           String     @id @default(uuid()) @db.Uuid
-  periodId     String     @map("period_id") @db.Uuid
+  id           String       @id @default(uuid()) @db.Uuid
+  periodId     String       @map("period_id") @db.Uuid
   text         String
-  status       TaskStatus @default(open)
+  status       TaskStatus   @default(open)
+  /// Existing rows backfill to `medium` — the neutral middle — and are then
+  /// adjusted by hand rather than having a level guessed for them.
+  priority     TaskPriority @default(medium)
   notes        String?
   /// Increments on each carry-forward. Drives the "carried 2x" badge.
-  carriedCount Int        @default(0) @map("carried_count")
+  carriedCount Int          @default(0) @map("carried_count")
   /// Earliest ancestor in the carry-forward chain (null on a first occurrence).
-  originTaskId String?    @map("origin_task_id") @db.Uuid
-  createdAt    DateTime   @default(now()) @map("created_at")
-  completedAt  DateTime?  @map("completed_at")
+  originTaskId String?      @map("origin_task_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  completedAt  DateTime?    @map("completed_at")
 
   period      Period      @relation(fields: [periodId], references: [id], onDelete: Cascade)
   origin      Task?       @relation("TaskLineage", fields: [originTaskId], references: [id], onDelete: SetNull)
@@ -62,6 +73,7 @@ model Task {
   owners      TaskOwner[]
 
   @@index([periodId])
+  @@index([periodId, priority])
   @@index([originTaskId])
   @@index([status])
   @@index([status, carriedCount])

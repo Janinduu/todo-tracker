@@ -26,6 +26,7 @@ export default async function PeriodDetailPage({
     id: task.id,
     text: task.text,
     status: task.status,
+    priority: task.priority,
     carriedCount: task.carriedCount,
     owners: task.owners.map((o) => ({ id: o.member.id, name: o.member.name })),
   }));

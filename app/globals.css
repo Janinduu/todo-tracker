@@ -14,6 +14,16 @@
   --color-warn: #8a5320;
   --color-warn-soft: #f4e6d4;
 
+  /* Priority scale. Text colours are checked against both their own soft
+     background and the canvas — all three clear WCAG AA (4.5:1). The amber was
+     darkened from a brighter orange, which only reached 4.24:1. */
+  --color-prio-high: #a32219;
+  --color-prio-high-soft: #fadfdc;
+  --color-prio-mid: #8a5a15;
+  --color-prio-mid-soft: #f7e8ce;
+  --color-prio-low: #2f6d3f;
+  --color-prio-low-soft: #dcebdd;
+
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
 }

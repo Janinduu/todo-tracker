@@ -2,15 +2,18 @@
  * Exercises the carry-forward engine and the monthly rollup against the real
  * database, then removes everything it created.
  *
- * Run: npx tsx prisma/test-carry-forward.ts
+ * Run: npm test
  *
- * Refuses to run if any periods already exist, so it can never disturb real
- * meeting data.
+ * Safe to run alongside live data. Every week it creates sits in March 2019 —
+ * far from any real meeting — and it drives `carryForwardFrom` with an explicit
+ * source period rather than "the latest week", so it can never pick up real
+ * tasks. Cleanup is scoped to the period ids it created, and the run asserts
+ * the live task count is unchanged at the end.
  */
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
-import { createNextPeriod } from "../lib/period-logic";
-import { getMonthlyReport } from "../lib/queries";
+import { carryForwardFrom } from "../lib/period-logic";
+import { getMonthlyReport, getPeriod } from "../lib/queries";
 import { parseDateInput } from "../lib/dates";
 
 let failures = 0;
@@ -28,15 +31,35 @@ function check(label: string, actual: unknown, expected: unknown) {
   }
 }
 
-async function main() {
-  const existingPeriods = await prisma.period.count();
-  if (existingPeriods > 0) {
-    console.error(
-      `Refusing to run: ${existingPeriods} period(s) already exist. This test ` +
-        `only runs against an empty timeline so it can't touch real data.`,
-    );
-    process.exit(1);
+/** Only these are ever deleted at the end. */
+const createdPeriodIds: string[] = [];
+
+async function newestCreated() {
+  return prisma.period.findFirstOrThrow({
+    where: { id: { in: createdPeriodIds } },
+    orderBy: { endDate: "desc" },
+    include: {
+      tasks: { include: { owners: true }, orderBy: { createdAt: "asc" } },
+    },
+  });
+}
+
+/** Carry forward from the newest week this test created — never the app's. */
+async function carryForward(endDate: string) {
+  const source = await newestCreated();
+  const result = await carryForwardFrom(source.id, endDate);
+  if (result.ok) {
+    const created = await prisma.period.findFirstOrThrow({
+      where: { startDate: source.endDate, endDate: parseDateInput(endDate) },
+    });
+    createdPeriodIds.push(created.id);
   }
+  return result;
+}
+
+async function main() {
+  const liveTasksBefore = await prisma.task.count();
+  const livePeriodsBefore = await prisma.period.count();
 
   const [thanveer, prathapa, janindu] = await Promise.all([
     prisma.teamMember.findFirstOrThrow({ where: { name: "Thanveer" } }),
@@ -46,32 +69,37 @@ async function main() {
 
   try {
     // ---------------------------------------------------------------- week 1
-    console.log("\nWeek 1 (Aug 1 → Aug 8): three tasks, one gets done");
+    console.log("\nWeek 1 (Mar 1 → Mar 8): three tasks at three priorities");
     const week1 = await prisma.period.create({
       data: {
-        startDate: parseDateInput("2026-08-01"),
-        endDate: parseDateInput("2026-08-08"),
+        startDate: parseDateInput("2019-03-01"),
+        endDate: parseDateInput("2019-03-08"),
       },
     });
+    createdPeriodIds.push(week1.id);
 
-    const taskA = await prisma.task.create({
-      data: {
-        periodId: week1.id,
-        text: "A — single owner",
-        owners: { create: [{ memberId: thanveer.id }] },
-      },
-    });
+    // Deliberately created low → high, so correct ordering can't be an
+    // accident of insertion order.
     const taskB = await prisma.task.create({
       data: {
         periodId: week1.id,
-        text: "B — two owners",
+        text: "B — low, two owners",
+        priority: "low",
         owners: {
           create: [{ memberId: prathapa.id }, { memberId: janindu.id }],
         },
       },
     });
     const taskC = await prisma.task.create({
-      data: { periodId: week1.id, text: "C — no owner" },
+      data: { periodId: week1.id, text: "C — medium, no owner", priority: "medium" },
+    });
+    const taskA = await prisma.task.create({
+      data: {
+        periodId: week1.id,
+        text: "A — high, single owner",
+        priority: "high",
+        owners: { create: [{ memberId: thanveer.id }] },
+      },
     });
 
     // A is finished this week and must never be copied forward again.
@@ -80,18 +108,22 @@ async function main() {
       data: { status: "done", completedAt: new Date() },
     });
 
+    console.log("\nPriority ordering");
+    const ordered = await getPeriod(week1.id);
+    check(
+      "high → medium → low, regardless of insertion order",
+      ordered?.tasks.map((t) => t.priority),
+      ["high", "medium", "low"],
+    );
+
     // ---------------------------------------------------------------- week 2
-    console.log("\nWeek 2 (Aug 8 → Aug 15): B and C should carry");
-    check("createNextPeriod ok", await createNextPeriod("2026-08-15"), { ok: true });
+    console.log("\nWeek 2 (Mar 8 → Mar 15): B and C should carry");
+    check("carryForward ok", await carryForward("2019-03-15"), { ok: true });
 
-    const week2 = await prisma.period.findFirstOrThrow({
-      orderBy: { endDate: "desc" },
-      include: { tasks: { include: { owners: true }, orderBy: { createdAt: "asc" } } },
-    });
+    const week2 = await newestCreated();
 
-    check("start date inherited from week 1 end", week2.startDate.toISOString(), "2026-08-08T00:00:00.000Z");
+    check("start date inherited from week 1 end", week2.startDate.toISOString(), "2019-03-08T00:00:00.000Z");
     check("carried task count", week2.tasks.length, 2);
-    check("carried texts", week2.tasks.map((t) => t.text), ["B — two owners", "C — no owner"]);
     check("done task not copied", week2.tasks.some((t) => t.text.startsWith("A")), false);
     check("carriedCount incremented to 1", week2.tasks.map((t) => t.carriedCount), [1, 1]);
 
@@ -108,6 +140,10 @@ async function main() {
     check("B lineage points at original", carriedB.originTaskId, taskB.id);
     check("C lineage points at original", carriedC.originTaskId, taskC.id);
 
+    // Priority must survive the hop — an unfinished task doesn't get quieter.
+    check("B keeps priority low", carriedB.priority, "low");
+    check("C keeps priority medium", carriedC.priority, "medium");
+
     // The previous week must be untouched.
     const week1After = await prisma.task.findMany({ where: { periodId: week1.id } });
     check("week 1 still holds all three rows", week1After.length, 3);
@@ -118,18 +154,15 @@ async function main() {
     );
 
     // ---------------------------------------------------------------- week 3
-    console.log("\nWeek 3 (Aug 15 → Aug 22): B done, only C carries");
+    console.log("\nWeek 3 (Mar 15 → Mar 22): B done, only C carries");
     await prisma.task.update({
       where: { id: carriedB.id },
       data: { status: "done", completedAt: new Date() },
     });
-    check("createNextPeriod ok", await createNextPeriod("2026-08-22"), { ok: true });
+    check("carryForward ok", await carryForward("2019-03-22"), { ok: true });
 
-    const week3 = await prisma.period.findFirstOrThrow({
-      orderBy: { endDate: "desc" },
-      include: { tasks: true },
-    });
-    check("only C carries", week3.tasks.map((t) => t.text), ["C — no owner"]);
+    const week3 = await newestCreated();
+    check("only C carries", week3.tasks.map((t) => t.text), ["C — medium, no owner"]);
     check("carriedCount now 2", week3.tasks[0].carriedCount, 2);
     check(
       "lineage still the earliest ancestor, not the parent",
@@ -138,30 +171,28 @@ async function main() {
     );
 
     // ---------------------------------------------------------------- week 4
-    console.log("\nWeek 4 (Aug 22 → Aug 29): C hits the stuck threshold");
-    check("createNextPeriod ok", await createNextPeriod("2026-08-29"), { ok: true });
+    console.log("\nWeek 4 (Mar 22 → Mar 29): C hits the stuck threshold");
+    check("carryForward ok", await carryForward("2019-03-29"), { ok: true });
 
-    const week4 = await prisma.period.findFirstOrThrow({
-      orderBy: { endDate: "desc" },
-      include: { tasks: true },
-    });
+    const week4 = await newestCreated();
     check("carriedCount now 3", week4.tasks[0].carriedCount, 3);
     check("lineage unchanged across 3 hops", week4.tasks[0].originTaskId, taskC.id);
+    check("priority still medium after 3 hops", week4.tasks[0].priority, "medium");
 
     // ------------------------------------------------------------ guardrails
     console.log("\nGuardrails");
-    check("rejects a meeting date before the current one", await createNextPeriod("2026-08-20"), {
+    check("rejects a meeting date before the current one", await carryForward("2019-03-20"), {
       ok: false,
       error: "The next meeting must be after the current one.",
     });
-    check("rejects a malformed date", await createNextPeriod("not-a-date"), {
+    check("rejects a malformed date", await carryForward("not-a-date"), {
       ok: false,
       error: "Pick a valid meeting date.",
     });
 
     // ---------------------------------------------------------------- report
-    console.log("\nMonthly rollup for August 2026");
-    const report = await getMonthlyReport("2026-08");
+    console.log("\nMonthly rollup for March 2019");
+    const report = await getMonthlyReport("2019-03");
 
     check("weeks counted", report.periodCount, 4);
     // Four weeks hold 3 + 2 + 1 + 1 = 7 rows, but only 3 real to-dos.
@@ -171,11 +202,10 @@ async function main() {
       total: 3,
     });
 
-    // The report lists the work itself, not per-person tallies.
     check(
       "completed list holds A and B, once each",
       report.completed.map((r) => r.text).sort(),
-      ["A — single owner", "B — two owners"],
+      ["A — high, single owner", "B — low, two owners"],
     );
     check(
       "A is credited to its owner",
@@ -190,39 +220,49 @@ async function main() {
     check(
       "A is filed under the week it was finished in",
       report.completed.find((r) => r.text.startsWith("A"))?.weekLabel,
-      "Aug 1 → Aug 8",
+      "Mar 1 → Mar 8",
     );
 
-    check("missed list holds only C", report.missed.map((r) => r.text), ["C — no owner"]);
+    check("missed list holds only C", report.missed.map((r) => r.text), ["C — medium, no owner"]);
     check("missed C shows no owners (a team task)", report.missed[0]?.owners, []);
     check("missed C reports its carry count", report.missed[0]?.carriedCount, 3);
     check(
       "missed C is filed under the latest week",
       report.missed[0]?.weekLabel,
-      "Aug 22 → Aug 29",
+      "Mar 22 → Mar 29",
     );
 
     check("one stuck item", report.stuck.length, 1);
     check("stuck item is C at 3x", report.stuck[0]?.carriedCount, 3);
     check("stuck item has no owners", report.stuck[0]?.owners, []);
 
-    // A month with no weeks must not throw.
-    const emptyMonth = await getMonthlyReport("2026-01");
+    const emptyMonth = await getMonthlyReport("2019-01");
     check("empty month totals", emptyMonth.totals, { completed: 0, missed: 0, total: 0 });
     check("empty month has no stuck items", emptyMonth.stuck.length, 0);
   } finally {
-    // Remove everything this test created, regardless of outcome.
-    const periods = await prisma.period.findMany({ select: { id: true } });
-    await prisma.taskOwner.deleteMany({
-      where: { task: { periodId: { in: periods.map((p) => p.id) } } },
-    });
+    // Scoped to this run's periods only — live data is never in range.
+    const taskIds = (
+      await prisma.task.findMany({
+        where: { periodId: { in: createdPeriodIds } },
+        select: { id: true },
+      })
+    ).map((t) => t.id);
+
+    await prisma.taskOwner.deleteMany({ where: { taskId: { in: taskIds } } });
     // Null the lineage pointers first so self-referencing FKs don't block the
     // delete regardless of the order rows come out in.
-    await prisma.task.updateMany({ data: { originTaskId: null } });
-    await prisma.task.deleteMany({});
-    await prisma.period.deleteMany({});
+    await prisma.task.updateMany({
+      where: { id: { in: taskIds } },
+      data: { originTaskId: null },
+    });
+    await prisma.task.deleteMany({ where: { id: { in: taskIds } } });
+    await prisma.period.deleteMany({ where: { id: { in: createdPeriodIds } } });
     console.log("\ncleaned up test data");
   }
+
+  console.log("\nLive data untouched");
+  check("task count unchanged", await prisma.task.count(), liveTasksBefore);
+  check("period count unchanged", await prisma.period.count(), livePeriodsBefore);
 
   console.log(`\n${checks - failures}/${checks} checks passed`);
   if (failures > 0) process.exit(1);

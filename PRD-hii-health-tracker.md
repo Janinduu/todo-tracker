@@ -73,6 +73,7 @@ Task
 - period_id (uuid, fk -> Period)
 - text (text, required)
 - status (enum: open | done, default open)
+- priority (enum: low | medium | high, default medium)
 - notes (text, nullable)
 - carried_count (integer, default 0)   // increments each time it rolls forward unfinished
 - origin_task_id (uuid, fk -> Task, nullable, self-referencing)  // earliest ancestor; full lineage
@@ -98,12 +99,21 @@ assignments are copied along with the task when it carries forward.
 
 ### 6.1 Current period view (home screen)
 - Header shows the active (latest) period's date range, e.g. "Aug 12 → Aug 18".
-- Task list per row: checkbox (toggle open/done), task text, owner chips
-  (0-many; shows "Team" when unassigned), carried-count badge when
-  `carried_count > 0` (e.g. "carried 2x").
-- Inline add: text field + multi-select owner picker (leaving it empty is valid
-  and means a team task) + "Add". One click to add, one click to check off.
-- Edit and delete on each task.
+- **Sorted highest priority first** — high, then medium, then low; oldest first
+  within a level.
+- Task list per row: checkbox (toggle open/done), a coloured left stripe for
+  priority, task text, priority chip, owner chips (0-many; shows "Team" when
+  unassigned), carried-count badge when `carried_count > 0`.
+- Inline add: text field + multi-select owner picker (empty means a team task) +
+  priority picker + "Add".
+- Edit and delete on each task; edit changes text, owners, and priority.
+
+**Priority scale.** Low = green, medium = amber, high = red. Every appearance
+pairs the colour with the word, since red/green alone is the exact pair
+colour-blind readers cannot separate. New tasks default to **medium** — the
+neutral middle — and the picker is visible when adding, so the level is a choice
+rather than a silent assumption. Priority travels with a task when it carries
+forward; an unfinished item does not become less important by rolling over.
 
 ### 6.2 Start next period
 - Button: "Log next meeting."

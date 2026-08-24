@@ -304,14 +304,14 @@ function TaskRow({
             task.owners.map((owner) => (
               <span
                 key={owner.id}
-                className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] text-accent"
+                className="rounded bg-owner-soft px-1.5 py-0.5 text-[11px] text-owner"
               >
                 {owner.name}
               </span>
             ))
           )}
           {task.carriedCount > 0 && (
-            <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">
+            <span className="rounded bg-carried-soft px-1.5 py-0.5 text-[11px] text-carried">
               carried {task.carriedCount}x
             </span>
           )}

@@ -14,15 +14,25 @@
   --color-warn: #8a5320;
   --color-warn-soft: #f4e6d4;
 
-  /* Priority scale. Text colours are checked against both their own soft
-     background and the canvas — all three clear WCAG AA (4.5:1). The amber was
-     darkened from a brighter orange, which only reached 4.24:1. */
+  /* Priority scale — green / amber / red, reserved exclusively for priority.
+     Every text colour clears WCAG AA (4.5:1) on its own chip, on the canvas and
+     on a card. The amber was darkened from #96631a (4.24:1); the green was
+     re-chromed from #2f6d3f, which was desaturated enough to read grey. */
   --color-prio-high: #a32219;
   --color-prio-high-soft: #fadfdc;
   --color-prio-mid: #8a5a15;
   --color-prio-mid-soft: #f7e8ce;
-  --color-prio-low: #2f6d3f;
-  --color-prio-low-soft: #dcebdd;
+  --color-prio-low: #1f7a3a;
+  --color-prio-low-soft: #e6f3ea;
+
+  /* Owners and carry-count sit next to priority chips, so they must not borrow
+     a hue from that scale. Blue and plum are the pair that survived a CVD
+     check: violet against this blue measured ΔE 0.2 under deuteranopia —
+     indistinguishable — while plum stays separate. */
+  --color-owner: #1f5b8f;
+  --color-owner-soft: #dbe7f2;
+  --color-carried: #7a3568;
+  --color-carried-soft: #f1dfea;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;

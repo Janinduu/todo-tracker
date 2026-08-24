@@ -59,7 +59,6 @@ export default async function ReportsPage({
               count={report.completed.length}
               rows={report.completed}
               emptyText="Nothing completed this month."
-              tone="accent"
             />
           </Reveal>
 
@@ -69,7 +68,6 @@ export default async function ReportsPage({
               count={report.missed.length}
               rows={report.missed}
               emptyText="Nothing missed this month."
-              tone="warn"
               showCarried
             />
           </Reveal>
@@ -81,7 +79,6 @@ export default async function ReportsPage({
               count={report.stuck.length}
               rows={report.stuck}
               emptyText="Nothing stuck."
-              tone="warn"
               showCarried
             />
           </Reveal>
@@ -97,7 +94,6 @@ function TaskSection({
   count,
   rows,
   emptyText,
-  tone,
   showCarried,
 }: {
   title: string;
@@ -105,7 +101,6 @@ function TaskSection({
   count: number;
   rows: MonthTaskRow[];
   emptyText: string;
-  tone: "accent" | "warn";
   showCarried?: boolean;
 }) {
   return (
@@ -143,18 +138,16 @@ function TaskSection({
                     row.owners.map((owner) => (
                       <span
                         key={owner}
-                        className={`rounded px-1.5 py-0.5 text-[11px] ${
-                          tone === "accent"
-                            ? "bg-accent-soft text-accent"
-                            : "bg-warn-soft text-warn"
-                        }`}
+                        // Owners are blue wherever they appear; the section
+                        // itself already says completed vs missed.
+                        className="rounded bg-owner-soft px-1.5 py-0.5 text-[11px] text-owner"
                       >
                         {owner}
                       </span>
                     ))
                   )}
                   {showCarried && row.carriedCount > 0 && (
-                    <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] text-warn">
+                    <span className="rounded bg-carried-soft px-1.5 py-0.5 text-[11px] text-carried">
                       carried {row.carriedCount}x
                     </span>
                   )}

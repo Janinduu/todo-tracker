@@ -110,6 +110,13 @@ assignments are copied along with the task when it carries forward.
   on one line made them indistinguishable.
 - Edit and delete on each task; edit changes text, owners, and priority.
 
+**Colour roles.** Green / amber / red are **reserved for priority** and used for
+nothing else. Owner chips are blue and the carried-count badge is plum, so
+neither can be mistaken for a priority level when they sit on the same row.
+(Violet was rejected for the carry badge: against the owner blue it measured
+ΔE 0.2 under deuteranopia — indistinguishable.) Every chip colour clears WCAG AA
+on its own background, the canvas and a card.
+
 **Priority scale.** Low = green, medium = amber, high = red. Chips and dropdown
 options read "High priority" / "Medium priority" / "Low priority" in full — a
 bare "High" beside owner names is ambiguous. Every appearance pairs the colour

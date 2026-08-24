@@ -33,7 +33,7 @@ export function OwnerPicker({
             aria-pressed={on}
             className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
               on
-                ? "border-accent bg-accent-soft font-medium text-accent"
+                ? "border-owner/40 bg-owner-soft font-medium text-owner"
                 : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
             }`}
           >

@@ -48,3 +48,6 @@ next-env.d.ts
 /.claude/skills/
 /.windsurf/
 /skills-lock.json
+
+# Real meeting data export — internal content, keep out of the repo
+data-export.json

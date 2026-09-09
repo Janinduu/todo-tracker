@@ -236,6 +236,44 @@ async function main() {
     check("stuck item is C at 3x", report.stuck[0]?.carriedCount, 3);
     check("stuck item has no owners", report.stuck[0]?.owners, []);
 
+    // ------------------------------------------------ historical-edit case
+    // Correcting a past week can leave two rows of one chain marked done,
+    // which carry-forward alone can never produce. The latest must win.
+    console.log("\nHistorical edit: two done rows in one chain");
+    const firstC = await prisma.task.findFirstOrThrow({
+      where: { id: taskC.id },
+    });
+    await prisma.task.update({
+      where: { id: firstC.id },
+      data: { status: "done", completedAt: new Date() },
+    });
+    const lastC = week4.tasks[0];
+    await prisma.task.update({
+      where: { id: lastC.id },
+      data: { status: "done", completedAt: new Date() },
+    });
+
+    const corrected = await getMonthlyReport("2019-03");
+    const cRows = corrected.completed.filter((r) => r.text.startsWith("C"));
+    check("chain still reported exactly once", cRows.length, 1);
+    check(
+      "latest completed row wins, not the earliest",
+      cRows[0]?.weekLabel,
+      "Mar 22 → Mar 29",
+    );
+    check("C no longer counted as missed", corrected.missed.length, 0);
+    check("totals still cover 3 to-dos", corrected.totals.total, 3);
+
+    // Put C back to open so the surrounding assertions keep their meaning.
+    await prisma.task.update({
+      where: { id: firstC.id },
+      data: { status: "open", completedAt: null },
+    });
+    await prisma.task.update({
+      where: { id: lastC.id },
+      data: { status: "open", completedAt: null },
+    });
+
     const emptyMonth = await getMonthlyReport("2019-01");
     check("empty month totals", emptyMonth.totals, { completed: 0, missed: 0, total: 0 });
     check("empty month has no stuck items", emptyMonth.stuck.length, 0);

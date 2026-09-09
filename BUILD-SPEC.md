@@ -493,8 +493,16 @@ this in: *7 rows across 4 weeks → 3 reported items.*
 
 Notes on the details:
 
-- A `done` task is never carried further, so the completed row is always the
-  final row of its chain when one exists.
+- **If several rows in a chain are `done`, the latest one wins.** Carry-forward
+  never copies a completed task, so this cannot arise from normal use — only
+  from a historical correction, where a past week is ticked off after it has
+  already carried forward. The latest done row is the most recent statement
+  about the work, and an earlier one demonstrably wasn't final because the task
+  kept being carried after it. Take the **whole reported line** from that one
+  row — text, owners and week — so a completion in the report always
+  corresponds to a real database row rather than being assembled from two.
+  Implement as `filter(...).at(-1)`, **not** `find(...)`, which returns the
+  earliest.
 - Owners can be edited over time, so take them from the **most recent** row in
   the chain.
 - Stuck items reflect *current* state, so they come from the month's last
@@ -523,7 +531,7 @@ Exact versions from the working build.
 
 | Layer | Choice | Version |
 |---|---|---|
-| Framework | Next.js, App Router, Turbopack | `16.3.1` |
+| Framework | Next.js, App Router, Turbopack | `16.3.4` |
 | UI runtime | React | `19.2.8` |
 | Language | TypeScript | `^5` |
 | Styling | Tailwind CSS + `@tailwindcss/postcss` | `^4` |
@@ -533,7 +541,7 @@ Exact versions from the working build.
 | Hosting | Vercel Hobby | — |
 | Script runner | `tsx` | `^4.23` |
 | Env loading | `dotenv` | `^17.4` |
-| Lint | ESLint + `eslint-config-next` | `^9` / `16.3.1` |
+| Lint | ESLint + `eslint-config-next` | `^9` / `16.3.4` |
 
 **Deliberately absent:** no state-management library, no component library, no
 chart library, no auth provider, no test framework. At this size each would be
@@ -993,6 +1001,7 @@ app held real data — exactly when it became most valuable. The working approac
 | Priority | Survives three carry-forward hops |
 | Guardrails | Rejects an earlier meeting date; rejects a malformed date |
 | Report | 7 rows across 4 weeks → 3 reported items; correct owner attribution; correct week labels; stuck detection; empty month returns zeros |
+| Historical edit | With both an ancestor and a later copy marked `done`, the chain is still reported **once** and takes the **latest** completed row's week |
 | Safety | Live task and period counts unchanged |
 
 ---

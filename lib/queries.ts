@@ -154,10 +154,14 @@ export async function getMonthlyReport(monthKey: string): Promise<MonthlyReport>
       (a, b) => (periodOrder.get(a.periodId) ?? 0) - (periodOrder.get(b.periodId) ?? 0),
     );
 
-    // A done task is never carried further, so the completed row is always the
-    // last one in the chain when it exists at all.
-    const doneRow = chain.find((t) => t.status === "done");
-    if (doneRow) completed.push(toRow(doneRow));
+    // Carry-forward never copies a completed task, so a chain normally holds at
+    // most one done row. Historical edits can produce several — correcting a
+    // past week after it has already carried forward. When that happens the
+    // latest wins: an earlier one demonstrably wasn't final, because the task
+    // kept being carried after it. The whole reported line comes from that one
+    // row, so a completion in the report always corresponds to a real record.
+    const doneRows = chain.filter((t) => t.status === "done");
+    if (doneRows.length > 0) completed.push(toRow(doneRows[doneRows.length - 1]));
     else missed.push(toRow(chain[chain.length - 1]));
   }
 
